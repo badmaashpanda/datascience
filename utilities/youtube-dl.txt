@@ -3,3 +3,6 @@ brew install yt-dlp
 yt-dlp -o '~/Desktop/yt/%(playlist_index)d_%(title)s.%(ext)s' https://www.youtube.com/playlist?list=PL0o_zxa4K1BVsziIRdfv4Hl4UIqDZhXWV
 
 yt-dlp -o '~/Desktop/kn_ml/%(playlist_index)d_%(title)s.%(ext)s' https://www.youtube.com/watch?v=JxgmHe2NyeY
+
+
+yt-dlp -o '~/Desktop/oc1t/%(playlist_index)d_%(title)s.%(ext)s' -S res,vcodec:h264,acodec:m4a,ext "https://www.youtube.com/watch?v=XZo4xyJXCak&list=PL0o_zxa4K1BVsziIRdfv4Hl4UIqDZhXWV"
