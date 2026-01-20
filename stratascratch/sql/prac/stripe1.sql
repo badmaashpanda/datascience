@@ -29,4 +29,23 @@
 
 -- disputes(dispute_id, charge_id, created_at)
 
+with cte as (
+select 
+a.merchant_id,
+count(a.charge_id) as total_charges,
+count(b.dispute_id) as total_disputes
+from charges a
+left join disputes b on a.charge_id=b.charge_id
+where a.created_at >= current_date - interval '90 days'
+and a.status = 'captured'
+group by 1 
+)
+
+select 
+merchant_id,
+total_charges,
+total_disputes,
+case when total_charges = 0 then null else total_disputes/total_charges end as dispute_rate
+from cte
+
 
