@@ -19,4 +19,22 @@
 -- Use clear, readable SQL and state any assumptions you make.
 -- Prefer robust patterns (e.g., count(distinct ...) or dedupe in a subquery/CTE) and explain tradeoffs briefly.
 
-
+with captured as (
+  select *
+  from charges
+  where status = 'captured'
+    and created_at >= current_timestamp - interval '180 days'
+),
+disputed_charges as (
+  select distinct charge_id
+  from disputes
+)
+select
+  c.merchant_id,
+  count(*) as captured_charges,
+  count(d.charge_id) as charges_with_disputes
+from captured c
+left join disputed_charges d
+  on d.charge_id = c.charge_id
+group by c.merchant_id
+order by captured_charges desc;
