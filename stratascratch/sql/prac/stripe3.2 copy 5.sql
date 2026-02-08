@@ -1,0 +1,24 @@
+-- Charge - - -> Dispute inquiry - - -> Dispute escalation - - -> Evidence submission - - -> Resolution
+
+-- charge                                escalation
+-- +---------------+---------+           +---------------+---------+
+-- | charge_id     | varchar |<--+       | escalation_id | varchar |
+-- | created       | date    |   |       | created       | date    |
+-- | amount        | int     |   |   +-->| inquiry_id    | varchar |
+-- +---------------+---------+   |   |   +---------------+---------+
+--                               |   |
+-- inquiry                       |   |   evidence
+-- +---------------+---------+   |   |   +---------------+---------+
+-- | inquiry_id    | varchar |<--|---+   | evidence_id   | varchar |
+-- | created       | date    |   |   |   | created       | date    |
+-- | charge_id     | varchar |<--+   +-->| inquiry_id    | varchar |
+-- +---------------+---------+       |   +---------------+---------+
+--                                   |
+-- resolution                        |
+-- +---------------+---------+       | 
+-- | resolution_id | varchar |       |
+-- | created       | date    |       |
+-- | inquiry_id    | varchar |<------+
+-- | overturned    | bool    |
+-- +---------------+---------+
+-- */
