@@ -81,50 +81,73 @@ from agg
 order by 1
 
 
--- another method
+-- another way
 
+WITH charge_base AS (
+  SELECT
+    c.charge_id,
+    DATE_TRUNC('month', c.created)::date AS charge_month
+  FROM charge c
+),
 
-with charges as (
-select 
-date_trunc('month',created) as charge_month,
-count(*) as total_charges
-from charge c
-group by 1
+inq AS (
+  SELECT DISTINCT
+    i.charge_id,
+    1 AS has_inquiry
+  FROM inquiry i
+),
+
+esc AS (
+  SELECT DISTINCT
+    i.charge_id,
+    1 AS has_escalation
+  FROM inquiry i
+  JOIN escalation e
+    ON e.inquiry_id = i.inquiry_id
+),
+
+loss AS (
+  SELECT DISTINCT
+    i.charge_id,
+    1 AS has_loss
+  FROM inquiry i
+  JOIN resolution r
+    ON r.inquiry_id = i.inquiry_id
+   AND r.overturned = false
+),
+
+facts AS (
+  SELECT
+    cb.charge_month,
+    cb.charge_id,
+    COALESCE(inq.has_inquiry, 0)     AS has_inquiry,
+    COALESCE(esc.has_escalation, 0)  AS has_escalation,
+    COALESCE(loss.has_loss, 0)       AS has_loss
+  FROM charge_base cb
+  LEFT JOIN inq  ON inq.charge_id  = cb.charge_id
+  LEFT JOIN esc  ON esc.charge_id  = cb.charge_id
+  LEFT JOIN loss ON loss.charge_id = cb.charge_id
+),
+
+agg AS (
+  SELECT
+    charge_month,
+    COUNT(*) AS total_charges,
+    SUM(has_inquiry) AS inquiry_charges,
+    SUM(has_escalation) AS escalation_charges,
+    SUM(has_loss) AS loss_charges
+  FROM facts
+  GROUP BY 1
 )
 
-, inq as (
-    select charge_id,
-    count(inquiry_id) as num_inquires
-    from inquiry
-    group by 1
-)
-
-, esc as (
-    select c.charge_id, 
-           count(e.escalation_id) as num_escalations
-    from charge c left join inquiry i on c.charge_id=i.charge_id
-    join escalation e on i.inquiry_id = e.inquiry_id
-    group by 1
-)
-
-, res as (
-    select c.charge_id, 
-           count(r.resolution_id) as loss_charges
-    from charge c left join inquiry i on c.charge_id=i.charge_id
-    join resolution r on i.inquiry_id = r.inquiry_id and overturned = false
-    group by 1
-)
-
-, base as (
-    select 
-    c.charge_month,
-    c.total_charges,
-    i.num_inquires,
-    e.num_escalations,
-    r.loss_charges
-    from 
-    charges c
-    left join inq i on c.charge_id = i.charge_id
-    left join esc e on c.charge_id = e.charge_id
-    left join res r on c.charge_id = r.charge_id
-)
+SELECT
+  charge_month,
+  total_charges,
+  inquiry_charges,
+  escalation_charges,
+  loss_charges,
+  inquiry_charges::float / NULLIF(total_charges, 0) AS inquiry_rate,
+  escalation_charges::float / NULLIF(total_charges, 0) AS escalation_rate,
+  loss_charges::float / NULLIF(total_charges, 0) AS loss_rate
+FROM agg
+ORDER BY 1;

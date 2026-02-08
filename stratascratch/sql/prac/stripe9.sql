@@ -23,36 +23,32 @@
 -- +---------------+---------+
 -- */
 
+-- For each charge_month, compute:
+-- median_days_to_first_inquiry (days from charge.created to the first inquiry.created for that charge, only for charges that have an inquiry)
+-- p90_days_to_first_inquiry
 
---Dispute rate
+-- Postgres functions allowed (percentile_cont), count each charge once.
 
-With dedup_inq as (
-select charge_id, inquiry_id,
-row_number() over (partition by charge_id, order by created) as row_num
- from
-inquiry
-)
-	
-,base as (
-select
-date_trunc('month', a.created) as created_month,
-a.charge_id,
-B.inquiry_id
-from charge a left join dedup_inq b on a.charge_id=b.charge_id and b.row_num = 1
+with first_inq as (
+    select charge_id,
+    min(created) as first_inq
+    from
+    inquiry
+    group by 1
 )
 
-, agg as (
+, base as (
 select 
-Created_month,
-count(charge_id) as Total_charges,
-sum(case when inquiry_id is not null then 1 else 0 end) as disputed_charges
-From base
-group by 1)
+date_trunc('month', c.created)::date as charge_month,
+(i.first_inq::date - c.created::date) AS days_to_inquiry
+from charge c join first_inq i on c.charge_id=i.charge_id
+)
 
 select 
-Created_month,
-Total_charges,
-disputed_charges,
-Case when Total_charges = 0 then null else disputed_charges/Total_charges::float end as dispute_inquiry_rate
-From agg
+charge_month,
+percentile_cont(0.5) within group (order by days_to_inquiry) as median_days_to_first_inquiry,
+percentile_cont(0.9) within group (order by days_to_inquiry) as p90_days_to_first_inquiry
+from base
+group by 1
 order by 1
+

@@ -44,9 +44,8 @@ captured_count_last_hour,
 captured_amount_last_hour
 from agg where flag = 1
 
+
 --- Using corelated sub query
-
-
 select 
 a.card_id,
 a.charge_id,
