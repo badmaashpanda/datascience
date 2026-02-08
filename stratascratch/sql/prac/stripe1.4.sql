@@ -31,25 +31,24 @@
 -- window_end (timestamp of latest charge in the burst)
 -- charge_count
 
-WITH base AS (
-  SELECT
-    c1.card_id,
-    c1.created_at AS window_start,
-    c2.charge_id,
-    c2.created_at AS charge_time
-  FROM charges c1
-  JOIN charges c2
-    ON c1.card_id = c2.card_id
-   AND c2.created_at BETWEEN c1.created_at AND c1.created_at + interval '10 minutes'
-  WHERE c1.status = 'captured'
-    AND c2.status = 'captured'
-    AND c1.created_at >= now() - interval '24 hours'
-)
-SELECT
-  card_id,
-  window_start,
-  MAX(charge_time) AS window_end,
-  COUNT(*) AS charge_count
-FROM base
-GROUP BY 1, 2
-HAVING COUNT(*) >= 5;
+
+-- For each captured charge in the last 7 days, return:
+-- charge_id, card_id, created_at, amount
+-- prior_captures_24h: number of prior captured charges on the same card_id in the previous 24 hours (strictly before the current charge time)
+
+-- using corelated queries
+select 
+charge_id, 
+card_id, 
+created_at, 
+amount,
+    (
+        select count(*) 
+        from charges cq 
+        where c.card_id = cq.card_id 
+        and cq.status = 'captured'
+        and cq.created_at >= c.created_at - interval '24 hours' 
+        and cq.created_at < c.created_at
+    ) as prior_captures_24h
+from charges c 
+where c.created_at >= now() - interval '7 days' and c.status = 'captured'
