@@ -64,12 +64,22 @@ with facts as (
 
 
 -- better solution
-select 
-date_trunc('month', c.created)::date charge_month,
-count(distinct c.charge_id) as total_charges,
-count(distinct case when i.inquiry_id is not null then c.charge_id end) as charges_with_inquiry,
-avg(case when i.inquiry_id is not null then c.amount end) as avg_amount_inquired,
-count(distinct case when i.inquiry_id is not null then c.charge_id end)::float / nullif(count(distinct c.charge_id),0) as inquiry_rate
-from charge c left join inquiry i on c.charge_id = i.charge_id  
+with charge_flags as (
+  select
+    c.charge_id,
+    c.created,
+    c.amount,
+    max(case when i.inquiry_id is not null then 1 else 0 end) as has_inquiry
+  from charge c
+  left join inquiry i on c.charge_id = i.charge_id
+  group by 1,2,3
+)
+select
+  date_trunc('month', created)::date as charge_month,
+  count(*) as total_charges,
+  sum(has_inquiry) as charges_with_inquiry,
+  avg(case when has_inquiry = 1 then amount end) as avg_amount_inquired,
+  sum(has_inquiry)::float / nullif(count(*),0) as inquiry_rate
+from charge_flags
 group by 1
-order by 1
+order by 1;
