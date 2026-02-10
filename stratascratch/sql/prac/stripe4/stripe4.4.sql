@@ -23,35 +23,36 @@
 -- +---------------+---------+
 -- */
 
--- Goal: For each calendar month (based on charge.created), compute:
--- total_charges
--- charges_with_inquiry (charges that have at least one row in inquiry)
--- inquiry_rate = charges_with_inquiry / total_charges
+-- For each charge_month, return the top 3 merchants by total charge amount in that month.
 
-with facts as (
-    select 
-    date_trunc('month',c.created) as charge_month,
-    c.charge_id,
-    max(case when i.inquiry_id is not null then 1 else 0 end) as has_inquiry
-    from charge c
-    left join inquiry i on c.charge_id = i.charge_id
-    group by 1,2
+-- Output columns:
+-- charge_month
+-- merchant_id
+-- total_amount
+-- rank_in_month (1 = highest total)
+
+-- Rules:
+-- Use a window function for ranking (dense_rank or row_number, your call).
+-- If there’s a tie at rank 3, I’m fine with either including all ties (dense_rank) or arbitrarily picking 3 (row_number), but be consistent.
+
+with base as (
+select 
+date_trunc('month', created) as charge_month,
+merchant_id,
+sum(amount) as total_amount
+from charge
+group by 1,2
 )
 
-, agg as (
-    select 
-    charge_month,
-    count(charge_id) as total_charges,
-    sum(has_inquiry) as charges_with_inquiry
-    from facts
-    group by 1
+, rn as (
+    select charge_month,
+    merchant_id,
+    total_amount,
+    row_number() over (partition by charge_month order by total_amount desc) as rank_in_month 
+    from base 
 )
 
-select charge_month, 
-total_charges
-charges_with_inquiry,
-charges_with_inquiry::float / nullif(total_charges,0) as inquiry_rate
-from agg
-order by 1
-
+select charge_month, merchant_id, total_amount, rank_in_month
+from rn where rank_in_month <=3
+order by charge_month, rank_in_month;
 

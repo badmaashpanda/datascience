@@ -23,35 +23,45 @@
 -- +---------------+---------+
 -- */
 
--- Goal: For each calendar month (based on charge.created), compute:
--- total_charges
--- charges_with_inquiry (charges that have at least one row in inquiry)
--- inquiry_rate = charges_with_inquiry / total_charges
+-- Now compute this per charge_month:
+-- inquired_charges (≥ 1 inquiry)
+-- escalated_inquired_charges (among inquired charges, at least one escalation)
+-- escalation_rate = escalated_inquired_charges / inquired_charges
+
+-- Schema reminders
+-- inquiry(inquiry_id, created, charge_id)
+-- escalation(escalation_id, created, inquiry_id)
+-- charge(charge_id, created, amount)
+
+-- Grading traps
+-- Multiple escalations per inquiry and multiple inquiries per charge = double-count city unless you dedupe correctly.
+-- Escalation rate denominator is inquired_charges, not total charges.
+-- Use charge month from charge.created.
 
 with facts as (
     select 
+    charge_id,
     date_trunc('month',c.created) as charge_month,
-    c.charge_id,
-    max(case when i.inquiry_id is not null then 1 else 0 end) as has_inquiry
+    max(case when i.inquiry_id is not null then 1 else 0 end) as has_inquiry,
+    max(case when e.inquiry_id is not null then 1 else 0 end) as has_escalation
     from charge c
     left join inquiry i on c.charge_id = i.charge_id
+    left join escalation e on i.inquiry_id = e.inquiry_id
     group by 1,2
 )
 
 , agg as (
     select 
     charge_month,
-    count(charge_id) as total_charges,
-    sum(has_inquiry) as charges_with_inquiry
+    sum(has_inquiry) as inquired_charges,
+    sum(case when has_inquiry=1 and has_escalation=1 then 1 else 0 end) as escalated_inquired_charges
     from facts
     group by 1
 )
 
 select charge_month, 
-total_charges
-charges_with_inquiry,
-charges_with_inquiry::float / nullif(total_charges,0) as inquiry_rate
+inquired_charges,
+escalated_inquired_charges,
+escalated_inquired_charges::float / nullif(inquired_charges,0) as escalation_rate
 from agg
 order by 1
-
-
