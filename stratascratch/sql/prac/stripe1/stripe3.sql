@@ -51,6 +51,6 @@ a.card_id,
 a.charge_id,
 a.created_at,
 (select count(*) from charges b on a.card_id=b.a.card_id and b.status = 'captured' and b.created_at between a.created_at - interval '1 hour' and a.created_at) as captured_count_last_hour,
-(select sum(amount) from charges b on a.card_id=b.a.card_id and b.status = 'captured' and b.created_at between a.created_at - interval '1 hour' and a.created_at) as captured_count_last_hour
+(select sum(amount) from charges b on a.card_id=b.a.card_id and b.status = 'captured' and b.created_at between a.created_at - interval '1 hour' and a.created_at) as captured_amount_last_hour
 from 
 charges a

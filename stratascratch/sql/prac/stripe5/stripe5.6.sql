@@ -34,31 +34,37 @@
 -- days_to_escalation = first_escalation_created - charge.created in days.
 -- Exclude non-escalated charges from percentile calculations (but still report escalated_charges).
 
-with first_escalation as (
-    select 
-    escalation_id,
-    inquiry_id,
-    min(created) as first_escalation_date
-    from escalation
-    group by 1,2
+WITH charge_cohort AS (
+  SELECT
+    c.charge_id,
+    date_trunc('day', c.created) AS charge_day,
+    c.created AS charge_created
+  FROM charge c
+  WHERE c.created >= NOW() - INTERVAL '30 days'
+),
+first_escalation_per_charge AS (
+  SELECT
+    i.charge_id,
+    MIN(e.created) AS first_escalation_created
+  FROM inquiry i
+  JOIN escalation e
+    ON e.inquiry_id = i.inquiry_id
+  GROUP BY i.charge_id
+),
+charge_escalation_facts AS (
+  SELECT
+    cc.charge_day,
+    cc.charge_id,
+    (fe.first_escalation_created - cc.charge_created) AS days_to_escalation
+  FROM charge_cohort cc
+  JOIN first_escalation_per_charge fe
+    ON fe.charge_id = cc.charge_id
 )
-
-, facts as (
-    select 
-    date_trunc('day',c.created) as charge_day,
-    c.created as charge_created,
-    i.inquiry_id,
-    count(distinct case when e.escalation_id is not null then c.charge_id end) as escalated_charges
-    from charge c
-    left join inquiry i on c.charge_id = i.charge_id
-    left join escalation e on i.inquiry_id = e.inquiry_id
-    where c.created >= now() - interval '30 days'
-    group by 1,2,3,4
-)
-
-select charge_day,
-escalated_charges,
-percentile_cont(0.5) within group (order by (e.first_escalation_date - f.charge_created)) as p50_days_to_escalation,
-percentile_cont(0.9) within group (order by (e.first_escalation_date - f.charge_created)) as p90_days_to_escalation
-from facts f left join first_escalation e on f.inquiry_id=e.inquiry_id
-order by 1
+SELECT
+  charge_day,
+  COUNT(*) AS escalated_charges,
+  PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY days_to_escalation) AS p50_days_to_escalation,
+  PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY days_to_escalation) AS p90_days_to_escalation
+FROM charge_escalation_facts
+GROUP BY charge_day
+ORDER BY charge_day;
