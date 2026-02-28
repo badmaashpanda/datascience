@@ -48,6 +48,46 @@
 -- loss_rate
 
 
+-- 02212026
+
+with base as (
+  select 
+  date_trunc('month', c.created) as charge_month,
+  c.charge_id,
+  case when i.inquiry_id is not null then c.charge_id else null end as charge_w_inq,
+  case when e.escalation_id is not null then c.charge_id else null end as charge_w_esc,
+  case when r.inquiry_id is not null and r.overturned = false then c.charge_id else null end as charge_w_loss
+  from charge c 
+  left join inquiry i on c.charge_id = i.charge_id
+  left join escalation e on i.inquiry_id = e.inquiry_id
+  left join resolution r on i.inquiry_id = r.inquiry_id
+)
+
+, agg as (
+  select charge_month,
+  count(distinct charge_id) as total_charges,
+  count(distinct charge_w_inq) as inquiry_charges,
+  count(distinct charge_w_esc) as escalation_charges,
+  count(distinct charge_w_loss) as loss_charges
+  from base
+  group by 1
+)
+
+select 
+charge_month,
+total_charges,
+inquiry_charges,
+escalation_charges,
+loss_charges,
+inquiry_charges::float / nullif(total_charges,0) as inquiry_rate,
+escalation_charges::float / nullif(total_charges,0) as escalation_rate,
+loss_charges::float / nullif(total_charges,0) as loss_rate
+from agg
+order by 1
+
+
+---
+
 with base as (
 select 
 date_trunc('month', created) as charge_month,

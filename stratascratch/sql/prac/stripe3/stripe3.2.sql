@@ -48,6 +48,37 @@
 -- Use inquiry.created as the starting point
 -- Use escalation.created as the ending point
 
+
+-- 
+with base as (
+    select 
+    date_trunc('month', i.created) as inquiry_month,
+    i.inquiry_id,
+    i.created as created_ts,
+    case when e.escalation_id is not null then e.inquiry_id else null end as has_escalation,
+    case when e.escalation_id is not null then extract(epoch from (e.created - i.created)) / 86400.0 else null end as days_to_escalation
+    from inquiry i 
+    left join escalation e on i.inquiry_id = e.inquiry_id
+)
+
+select 
+inquiry_month,
+count(*) as total_inquiries,
+count(has_escalation) as escalated_inquiries,
+count(has_escalation)::float / nullif(count(*),0) as escalation_rate,
+avg(days_to_escalation) as avg_days_to_escalation
+from base
+group by 1
+order by 1
+
+
+
+
+
+
+
+
+
 with facts as (
 select 
 date_trunc('month', i.created) as inquiry_month,

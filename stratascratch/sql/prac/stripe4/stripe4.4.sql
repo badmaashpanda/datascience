@@ -35,6 +35,13 @@
 -- Use a window function for ranking (dense_rank or row_number, your call).
 -- If there’s a tie at rank 3, I’m fine with either including all ties (dense_rank) or arbitrarily picking 3 (row_number), but be consistent.
 
+-- 02222026
+
+
+
+
+---
+
 with base as (
 select 
 date_trunc('month', created) as charge_month,
